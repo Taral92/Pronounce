@@ -26,9 +26,9 @@ const severityDot = {
 };
 
 const severityLabel = {
-  low: "Almost there",
-  medium: "Needs work",
-  high: "Important fix",
+  low: "Polish this",
+  medium: "Fix this",
+  high: "Priority fix",
 };
 
 function playBase64(base64: string) {
@@ -58,7 +58,6 @@ export default function WordCards({
       const b64 = await getWordTTS(token, word, language);
       playBase64(b64);
     } catch {
-      // silent
     } finally {
       setLoadingCorrect("");
     }
@@ -72,7 +71,6 @@ export default function WordCards({
       const b64 = await getFeedbackTTS(token, text, language, accent);
       playBase64(b64);
     } catch {
-      // silent
     } finally {
       setLoadingFeedback("");
     }
@@ -82,9 +80,10 @@ export default function WordCards({
 
   return (
     <div>
-      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">
-        Words to Practice
-      </h3>
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Your highest-impact fixes</h3>
+        <p className="text-xs text-gray-500 mt-1">Practice these first to sound clearer faster.</p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {words.map((w, i) => {
@@ -105,19 +104,19 @@ export default function WordCards({
               <p className="text-base font-bold text-gray-800 mb-1">{w.word}</p>
 
               {phoneticsEnabled && w.phonetic && (
-                <p className="text-xs text-gray-500 mb-1 font-mono">Correct: {w.phonetic}</p>
+                <p className="text-xs text-gray-500 mb-1 font-mono">Target sound: {w.phonetic}</p>
               )}
 
               {phoneticsEnabled && w.spoken && (
-                <p className="text-xs text-red-500 mb-2 font-mono">You said: {w.spoken}</p>
+                <p className="text-xs text-red-500 mb-2 font-mono">Heard as: {w.spoken}</p>
               )}
 
               {w.what_was_good && (
                 <p className="text-xs text-green-700 mb-2 leading-relaxed">✅ {w.what_was_good}</p>
               )}
 
-              <p className="text-xs text-gray-700 mb-2 leading-relaxed">⚠️ {w.what_to_fix}</p>
-              <p className="text-xs text-gray-600 mb-3 leading-relaxed">💡 {w.next_try_tip}</p>
+              <p className="text-xs text-gray-700 mb-2 leading-relaxed"><span className="font-semibold">What to fix:</span> {w.what_to_fix}</p>
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed"><span className="font-semibold">Next try:</span> {w.next_try_tip}</p>
 
               {w.parts && (
                 <div className="mb-3 space-y-1">
@@ -130,10 +129,10 @@ export default function WordCards({
               <div className="flex gap-2 flex-wrap">
                 {w.user_audio_base64 && (
                   <button
-                    onClick={() => playBase64(w.user_audio_base64!)}
+                    onClick={() => playBase64(w.user_audio_base64)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold transition-all active:scale-95"
                   >
-                    <Volume2 size={11} /> Your word
+                    <Volume2 size={11} /> Your audio
                   </button>
                 )}
 
@@ -148,7 +147,7 @@ export default function WordCards({
                     ) : (
                       <Volume2 size={11} />
                     )}
-                    Correct pronunciation
+                    Target audio
                   </button>
                 )}
 
@@ -162,7 +161,7 @@ export default function WordCards({
                   ) : (
                     <Volume2 size={11} />
                   )}
-                  Feedback
+                  Coach tip
                 </button>
               </div>
             </div>

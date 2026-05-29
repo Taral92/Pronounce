@@ -21,7 +21,7 @@ export default function AudioRecorder({ maxSeconds, onAudioReady, disabled, anal
         <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center">
           <Loader2 size={28} className="text-purple-500 animate-spin" />
         </div>
-        <p className="text-sm font-semibold text-purple-500 animate-pulse">Analysing your pronunciation...</p>
+        <p className="text-sm font-semibold text-purple-500 animate-pulse">Analysing your pronunciation and selecting the most useful fixes...</p>
       </div>
     );
   }
@@ -66,8 +66,8 @@ export default function AudioRecorder({ maxSeconds, onAudioReady, disabled, anal
           : <Mic size={28} className="text-white" />
         }
       </button>
-      <p className="text-xs font-semibold text-gray-400">
-        {isRecording ? "Tap to stop" : "Tap to record"}
+      <p className="text-xs font-semibold text-gray-400 text-center">
+        {isRecording ? "Tap to stop" : `Tap to record · up to ${maxSeconds}s`}
       </p>
     </div>
   );
