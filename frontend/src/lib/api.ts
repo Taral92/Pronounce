@@ -105,6 +105,8 @@ export async function getLanguages(token: string): Promise<LanguageConfig[]> {
 export function base64ToObjectUrl(b64: string): string {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  for (let i = 0; i < bin.length; i++) {
+    arr[i] = bin.charCodeAt(i);
+  }
   return URL.createObjectURL(new Blob([arr], { type: "audio/mpeg" }));
 }
