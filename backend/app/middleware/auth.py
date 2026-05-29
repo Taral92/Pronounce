@@ -24,8 +24,8 @@ def _decode_token(token: str) -> dict:
 
     azp = payload.get("azp")
     allowed_azp = {
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+       "https://pronounce-p3dm.vercel.app",
+       "http://localhost:3000",
     }
 
     if azp and azp not in allowed_azp:
