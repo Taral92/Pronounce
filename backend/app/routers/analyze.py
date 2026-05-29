@@ -8,6 +8,16 @@ from app.config import LANGUAGES
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
+_SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def _clean_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = " ".join(str(value).split()).strip()
+    return cleaned or None
+
+
 @router.post("", response_model=AnalyzeResponse)
 async def analyze(
     audio: UploadFile = File(...),
@@ -28,6 +38,9 @@ async def analyze(
     if language not in LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {language}")
 
+    if accent not in LANGUAGES[language]["accents"]:
+        accent = LANGUAGES[language]["default_accent"]
+
     if mode not in {"guided", "free"}:
         raise HTTPException(status_code=400, detail="invalid_mode")
 
@@ -44,13 +57,12 @@ async def analyze(
         raise HTTPException(status_code=402, detail=reason)
 
     audio_bytes = await audio.read()
-    whisper_code = LANGUAGES[language]["whisper_code"]
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="empty_audio")
 
-    transcription = await whisper.transcribe(
-        audio_bytes,
-        whisper_code,
-        audio.filename or "recording.webm"
-    )
+    whisper_code = LANGUAGES[language]["whisper_code"]
+    transcription = await whisper.transcribe(audio_bytes, whisper_code, audio.filename or "recording.webm")
+    transcript_text = _clean_text(transcription.get("text")) or ""
 
     analysis = await gpt.analyze(
         mode=mode,
@@ -64,8 +76,14 @@ async def analyze(
     practice_words: list[PracticeWord] = []
 
     for item in analysis.get("practice_words", []):
+        word = _clean_text(item.get("word"))
+        what_to_fix = _clean_text(item.get("what_to_fix"))
+        next_try_tip = _clean_text(item.get("next_try_tip"))
+        if not word or not what_to_fix or not next_try_tip:
+            continue
+
         parts = item.get("parts") or {}
-        span = find_best_word_span(item.get("word", ""), transcription.get("words", []), used_indexes)
+        span = find_best_word_span(word, transcription.get("words", []), used_indexes)
 
         user_audio_b64 = None
         if span:
@@ -77,20 +95,30 @@ async def analyze(
 
         practice_words.append(
             PracticeWord(
-                word=item.get("word", ""),
-                spoken=item.get("spoken"),
-                phonetic=item.get("phonetic"),
-                severity=item.get("severity", "medium"),
-                what_was_good=item.get("what_was_good"),
-                what_to_fix=item.get("what_to_fix", ""),
-                next_try_tip=item.get("next_try_tip", ""),
+                word=word,
+                spoken=_clean_text(item.get("spoken")),
+                phonetic=_clean_text(item.get("phonetic")),
+                severity=item.get("severity", "medium") if item.get("severity") in _SEVERITY_RANK else "medium",
+                what_was_good=_clean_text(item.get("what_was_good")),
+                what_to_fix=what_to_fix,
+                next_try_tip=next_try_tip,
                 parts=WordPartsFeedback(
-                    start=parts.get("start"),
-                    middle=parts.get("middle"),
-                    end=parts.get("end"),
+                    start=_clean_text(parts.get("start")),
+                    middle=_clean_text(parts.get("middle")),
+                    end=_clean_text(parts.get("end")),
                 ) if parts else None,
                 user_audio_base64=user_audio_b64,
             )
+        )
+
+    practice_words = sorted(practice_words, key=lambda w: (_SEVERITY_RANK.get(w.severity, 1), len(w.word)))[:5]
+
+    overall_feedback = _clean_text(analysis.get("overall_feedback"))
+    if not overall_feedback:
+        overall_feedback = (
+            "Clear overall pronunciation with a few small fixes to sound more natural."
+            if practice_words else
+            "Clear, natural pronunciation overall. Nice control and good intelligibility."
         )
 
     usage = get_usage(clerk_id)
@@ -100,9 +128,9 @@ async def analyze(
 
     return AnalyzeResponse(
         mode=mode,
-        overall_score=analysis.get("overall_score", 0),
-        overall_feedback=analysis.get("overall_feedback", ""),
-        transcribed=transcription.get("text", ""),
+        overall_score=max(0, min(100, int(analysis.get("overall_score", 0) or 0))),
+        overall_feedback=overall_feedback,
+        transcribed=transcript_text,
         intended=cleaned_phrase if cleaned_phrase else None,
         language=language,
         accent=accent,

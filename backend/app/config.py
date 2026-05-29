@@ -19,7 +19,7 @@ LANGUAGES: dict[str, dict[str, Any]] = {
         "default_accent": "american",
         "accents": {
             "american":   {"voice_id": "9BWtsMINqrJLrRacOk9x", "label": "🇺🇸 American"},
-            "british":    {"voice_id": "JBFqnCBsd6RMkjVDRZzb", "label": "🇬🇧 British"},
+            "british":    {"voice_id": "pFZP5JQG7iQjIQuC4Bku", "label": "🇬🇧 British"},
             "australian": {"voice_id": "TX3LPaxmHKxFdv7VOQHJ", "label": "🇦🇺 Australian"},
         },
         "word_voice_id": "bIHbv24MWmeRgasZH58o",
@@ -60,7 +60,7 @@ TIERS: dict[str, dict[str, Any]] = {
         "welcome_bonus": 0,
     },
     "free": {
-        "monthly_analyses": 1000,
+        "monthly_analyses": 500,
         "max_recording_secs": 30,
         "max_phrase_chars": 200,
         "welcome_bonus": 3,
