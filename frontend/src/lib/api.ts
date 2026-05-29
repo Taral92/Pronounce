@@ -50,14 +50,17 @@ export async function analyzePronunciation(
     form.append("phrase", params.phrase.trim());
   }
 
-  return req<AnalyzeResponse>(token, "/analyze", { method: "POST", body: form });
+  return req<AnalyzeResponse>(token, "/analyze", {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function createCheckoutSession(
   token: string,
   priceId?: string
-): Promise<{ url?: string; sessionId?: string }> {
-  return req<{ url?: string; sessionId?: string }>(token, "/stripe/create-checkout-session", {
+): Promise<{ url: string }> {
+  return req<{ url: string }>(token, "/stripe/create-checkout-session", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -66,7 +69,11 @@ export async function createCheckoutSession(
   });
 }
 
-export async function getWordTTS(token: string, word: string, language: string): Promise<string> {
+export async function getWordTTS(
+  token: string,
+  word: string,
+  language: string
+): Promise<string> {
   const data = await req<AudioResponse>(
     token,
     `/tts/word?w=${encodeURIComponent(word)}&language=${language}`

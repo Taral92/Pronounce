@@ -19,6 +19,12 @@ export interface PracticeWord {
   user_audio_base64?: string;
 }
 
+export interface DimensionScore {
+  score?: number;
+  label: string;
+  feedback: string;
+}
+
 export interface AnalyzeResponse {
   mode: AnalyzeMode;
   overall_score: number;
@@ -30,6 +36,7 @@ export interface AnalyzeResponse {
   full_user_audio_base64: string;
   practice_words: PracticeWord[];
   analyses_remaining: number | null;
+  dimensions?: Record<string, DimensionScore>;
 }
 
 export interface AudioResponse {
@@ -51,7 +58,11 @@ export interface UserLimits {
   phonetics_enabled: boolean;
 }
 
-export interface AccentConfig { voice_id: string; label: string; }
+export interface AccentConfig {
+  voice_id: string;
+  label: string;
+}
+
 export interface LanguageConfig {
   key: string;
   label: string;
