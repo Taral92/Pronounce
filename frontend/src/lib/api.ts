@@ -1,16 +1,27 @@
-import type { AnalyzeResponse, UserLimits, LanguageConfig, AnalyzeMode, AudioResponse } from "@/types";
+import type {
+  AnalyzeResponse,
+  UserLimits,
+  LanguageConfig,
+  AnalyzeMode,
+  AudioResponse,
+} from "@/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function req<T>(token: string, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const e: Record<string, unknown> = new Error((err as { detail?: string })?.detail ?? "Request failed") as unknown as Record<string, unknown>;
+    const e: Record<string, unknown> = new Error(
+      (err as { detail?: string })?.detail ?? "Request failed"
+    ) as unknown as Record<string, unknown>;
     e.status = res.status;
     e.detail = (err as { detail?: string })?.detail;
     throw e;
@@ -42,6 +53,19 @@ export async function analyzePronunciation(
   return req<AnalyzeResponse>(token, "/analyze", { method: "POST", body: form });
 }
 
+export async function createCheckoutSession(
+  token: string,
+  priceId?: string
+): Promise<{ url?: string; sessionId?: string }> {
+  return req<{ url?: string; sessionId?: string }>(token, "/stripe/create-checkout-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(priceId ? { price_id: priceId } : {}),
+  });
+}
+
 export async function getWordTTS(token: string, word: string, language: string): Promise<string> {
   const data = await req<AudioResponse>(
     token,
@@ -50,7 +74,12 @@ export async function getWordTTS(token: string, word: string, language: string):
   return data.audio_base64;
 }
 
-export async function getFeedbackTTS(token: string, text: string, language: string, accent: string): Promise<string> {
+export async function getFeedbackTTS(
+  token: string,
+  text: string,
+  language: string,
+  accent: string
+): Promise<string> {
   const data = await req<AudioResponse>(
     token,
     `/tts/feedback?text=${encodeURIComponent(text)}&language=${language}&accent=${accent}`
