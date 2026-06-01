@@ -1,6 +1,9 @@
 from __future__ import annotations
-from pydantic import BaseModel, field_validator
-from typing import Literal, Optional, Any
+
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
 from app.config import LANGUAGES
 
 
@@ -44,6 +47,31 @@ class PracticeWord(BaseModel):
     user_audio_base64: Optional[str] = None
 
 
+class PhonemeScore(BaseModel):
+    phoneme: str
+    accuracy_score: Optional[float] = None
+    offset: Optional[int] = None
+    duration: Optional[int] = None
+
+
+class SyllableScore(BaseModel):
+    syllable: str
+    grapheme: Optional[str] = None
+    accuracy_score: Optional[float] = None
+    offset: Optional[int] = None
+    duration: Optional[int] = None
+
+
+class AnalyzedWordScore(BaseModel):
+    word: str
+    accuracy_score: Optional[float] = None
+    error_type: Optional[str] = None
+    offset: Optional[int] = None
+    duration: Optional[int] = None
+    syllables: list[SyllableScore] = Field(default_factory=list)
+    phonemes: list[PhonemeScore] = Field(default_factory=list)
+
+
 class AnalyzeResponse(BaseModel):
     mode: Literal["guided", "free"]
 
@@ -64,9 +92,11 @@ class AnalyzeResponse(BaseModel):
     native_audio_base64: Optional[str] = None
     full_user_audio_base64: str
 
-    practice_words: list[PracticeWord]
+    practice_words: list[PracticeWord] = Field(default_factory=list)
+    sound_map: list[AnalyzedWordScore] = Field(default_factory=list)
 
     analyses_remaining: Optional[int] = None
+
 
 class AudioResponse(BaseModel):
     audio_base64: str

@@ -6,6 +6,13 @@ import subprocess
 import os
 
 
+def _clean_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = " ".join(str(value).split()).strip()
+    return cleaned or None
+
+
 async def assess(
     audio_bytes: bytes,
     language_code: str,
@@ -20,9 +27,15 @@ async def assess(
         filename,
     )
 
+    transcript_text = _clean_text((transcription or {}).get("text"))
+    effective_reference = _clean_text(reference_text) or transcript_text
+
+    print("TRANSCRIPT TEXT:", transcript_text)
+    print("EFFECTIVE REFERENCE:", effective_reference)
+
     azure = None
 
-    if reference_text:
+    if effective_reference:
         print("RUNNING AZURE ASSESSMENT")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as src:
@@ -50,14 +63,14 @@ async def assess(
 
             azure = assess_pronunciation(
                 wav_path,
-                reference_text,
+                effective_reference,
             )
 
             print("AZURE RESULT:", azure)
 
         except Exception as e:
             print("AZURE ERROR:", repr(e))
-            raise
+            azure = None
 
         finally:
             if os.path.exists(src_path):
@@ -70,5 +83,3 @@ async def assess(
         "transcription": transcription,
         "assessment": azure,
     }
-
-

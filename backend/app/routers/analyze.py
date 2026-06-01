@@ -9,8 +9,16 @@ from app.services.speech_assessment import assess as speech_assess
 from app.services.azure_speech import assess_pronunciation
 from app.services.audio_clip import clip_audio_bytes, find_best_word_span, to_base64 as clip_to_base64
 from app.services.usage import check_and_consume, get_or_create_user, get_usage, get_effective_limits
-from app.models.schemas import AnalyzeResponse, PracticeWord, WordPartsFeedback
+from app.models.schemas import (
+    AnalyzeResponse,
+    PracticeWord,
+    WordPartsFeedback,
+    AnalyzedWordScore,
+    SyllableScore,
+    PhonemeScore,
+)
 from app.config import LANGUAGES
+
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
@@ -22,6 +30,55 @@ def _clean_text(value: str | None) -> str | None:
         return None
     cleaned = " ".join(str(value).split()).strip()
     return cleaned or None
+
+
+def _build_sound_map(azure_scores: dict | None) -> list[AnalyzedWordScore]:
+    if not azure_scores:
+        return []
+
+    raw = azure_scores.get("raw") or {}
+    nbest = (raw.get("NBest") or [{}])[0]
+    words = nbest.get("Words") or []
+
+    result: list[AnalyzedWordScore] = []
+
+    for word in words:
+        pa = word.get("PronunciationAssessment") or {}
+
+        syllables = [
+            SyllableScore(
+                syllable=s.get("Syllable", ""),
+                grapheme=s.get("Grapheme"),
+                accuracy_score=(s.get("PronunciationAssessment") or {}).get("AccuracyScore"),
+                offset=s.get("Offset"),
+                duration=s.get("Duration"),
+            )
+            for s in (word.get("Syllables") or [])
+        ]
+
+        phonemes = [
+            PhonemeScore(
+                phoneme=p.get("Phoneme", ""),
+                accuracy_score=(p.get("PronunciationAssessment") or {}).get("AccuracyScore"),
+                offset=p.get("Offset"),
+                duration=p.get("Duration"),
+            )
+            for p in (word.get("Phonemes") or [])
+        ]
+
+        result.append(
+            AnalyzedWordScore(
+                word=word.get("Word", ""),
+                accuracy_score=pa.get("AccuracyScore"),
+                error_type=pa.get("ErrorType"),
+                offset=word.get("Offset"),
+                duration=word.get("Duration"),
+                syllables=syllables,
+                phonemes=phonemes,
+            )
+        )
+
+    return result
 
 
 @router.post("", response_model=AnalyzeResponse)
@@ -68,13 +125,6 @@ async def analyze(
 
     whisper_code = LANGUAGES[language]["whisper_code"]
 
-    native_audio_bytes = None
-    if mode == "guided" and cleaned_phrase:
-        try:
-            native_audio_bytes = await tts.phrase(cleaned_phrase, language, accent)
-        except Exception:
-            native_audio_bytes = None
-
     speech_result = await speech_assess(
         audio_bytes=audio_bytes,
         language_code=whisper_code,
@@ -86,6 +136,29 @@ async def analyze(
     azure_scores = speech_result["assessment"]
 
     transcript_text = _clean_text(transcription.get("text")) or ""
+
+    native_text = cleaned_phrase if mode == "guided" else transcript_text
+    native_audio_bytes = None
+
+    if native_text:
+        try:
+            native_audio_bytes = await tts.phrase(native_text, language, accent)
+            print("native_tts_ok", {
+                "mode": mode,
+                "language": language,
+                "accent": accent,
+                "text": native_text,
+                "bytes": len(native_audio_bytes) if native_audio_bytes else 0,
+            })
+        except Exception as e:
+            print("native_tts_failed", {
+                "mode": mode,
+                "language": language,
+                "accent": accent,
+                "text": native_text,
+                "error": repr(e),
+            })
+            native_audio_bytes = None
 
     analysis = await gpt.analyze(
         mode=mode,
@@ -134,7 +207,10 @@ async def analyze(
             )
         )
 
-    practice_words = sorted(practice_words, key=lambda w: (_SEVERITY_RANK.get(w.severity, 1), len(w.word)))[:5]
+    practice_words = sorted(
+        practice_words,
+        key=lambda w: (_SEVERITY_RANK.get(w.severity, 1), len(w.word))
+    )[:5]
 
     overall_feedback = _clean_text(analysis.get("overall_feedback"))
     if not overall_feedback:
@@ -166,6 +242,7 @@ async def analyze(
         full_user_audio_base64=clip_to_base64(audio_bytes),
         practice_words=practice_words,
         analyses_remaining=remaining,
+        sound_map=_build_sound_map(azure_scores),
     )
 
 
@@ -194,16 +271,11 @@ async def azure_debug(audio: UploadFile = File(...)):
             stderr=subprocess.PIPE,
         )
 
-        result = assess_pronunciation(
-            wav_path,
-            "hello how are you"
-        )
-
+        result = assess_pronunciation(wav_path, "hello how are you")
         return result
 
     finally:
         if os.path.exists(src_path):
             os.remove(src_path)
-
         if os.path.exists(wav_path):
             os.remove(wav_path)

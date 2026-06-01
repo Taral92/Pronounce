@@ -60,7 +60,7 @@ TIERS: dict[str, dict[str, Any]] = {
         "welcome_bonus": 0,
     },
     "free": {
-        "monthly_analyses": 10,
+        "monthly_analyses": 100,
         "max_recording_secs": 30,
         "max_phrase_chars": 200,
         "welcome_bonus": 3,
