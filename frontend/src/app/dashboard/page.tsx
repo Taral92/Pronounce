@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth, UserButton } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { RefreshCw, Sparkles } from "lucide-react";
+
 import { analyzePronunciation } from "@/lib/api";
 import { useLimits } from "@/hooks/useLimits";
+import type { AnalyzeResponse, LanguageConfig, AppState, AnalyzeMode } from "@/types";
+
 import ScoreCircle from "@/components/ui/ScoreCircle";
 import { ComparePlayer } from "@/components/ui/AudioPlayer";
 import UsageBadge from "@/components/ui/UsageBadge";
 import UpgradePrompt from "@/components/ui/UpgradePrompt";
+
 import LanguageTabs from "@/components/pronunciation/LanguageTabs";
 import AccentSelector from "@/components/pronunciation/AccentSelector";
 import PhraseInput from "@/components/pronunciation/PhraseInput";
@@ -15,11 +21,8 @@ import AudioRecorder from "@/components/pronunciation/AudioRecorder";
 import DimensionScores from "@/components/pronunciation/DimensionScores";
 import WordCards from "@/components/pronunciation/WordCards";
 import FeedbackPanel from "@/components/pronunciation/FeedbackPanel";
-import type { AnalyzeResponse, LanguageConfig, AppState, AnalyzeMode } from "@/types";
-import { RefreshCw, Sparkles } from "lucide-react";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
+import SoundMap from "@/components/pronunciation/SoundMap";
+import WeakestSoundSpotlight from "@/components/pronunciation/WeakestSoundSpotlight";
 
 const DEFAULT_LANGUAGES: LanguageConfig[] = [
   {
@@ -64,6 +67,7 @@ function summaryLabel(score: number) {
 
 export default function DashboardPage() {
   const { getToken } = useAuth();
+  const router = useRouter();
   const { limits, loading: limitsLoading, refresh: refreshLimits } = useLimits();
 
   const [mode, setMode] = useState<AnalyzeMode>("guided");
@@ -75,69 +79,69 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const currentLang = DEFAULT_LANGUAGES.find(l => l.key === language) ?? DEFAULT_LANGUAGES[0];
+  const currentLang = DEFAULT_LANGUAGES.find((l) => l.key === language) ?? DEFAULT_LANGUAGES[0];
   const maxChars = limits?.max_phrase_chars ?? 200;
   const maxSecs = limits?.max_recording_secs ?? 30;
 
-
-  const { isSignedIn, isLoaded } = useAuth();
-
-  const router = useRouter();
-
-  useEffect(() => {
-
-  if (!isLoaded) return;
-
-  if (!isSignedIn) {
-
+  // useEffect(() => {
+  //   if (!isLoaded) return;
+  //   if (!isSignedIn) {
+  //     router.replace("/");
+  //   }
+  // }, [isLoaded, isSignedIn, router]);
+  const token = getToken();
+  if (!token) {
     router.replace("/");
-
   }
-
-}, [isLoaded, isSignedIn, router]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
-    const cfg = DEFAULT_LANGUAGES.find(l => l.key === lang);
+    const cfg = DEFAULT_LANGUAGES.find((l) => l.key === lang);
     if (cfg) setAccent(cfg.default_accent);
   };
 
-  const handleAudioReady = useCallback(async (blob: Blob) => {
-    if (mode === "guided" && !phrase.trim()) {
-      setError("Please type a phrase first.");
-      return;
-    }
-
-    setAppState("analyzing");
-    setError("");
-
-    try {
-      const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
-      
-
-      const res = await analyzePronunciation(token, {
-        mode,
-        phrase: mode === "guided" ? phrase : undefined,
-        audio: blob,
-        language,
-        accent,
-      });
-
-      setResult(res);
-      setAppState("results");
-      refreshLimits();
-    } catch (e: unknown) {
-      const err = e as { status?: number; detail?: string };
-      if (err?.status === 402 || err?.detail === "monthly_limit_reached" || err?.detail === "limit_reached") {
-        setShowUpgrade(true);
-        setAppState("idle");
-      } else {
-        setError(err?.detail ?? "Something went wrong. Please try again.");
-        setAppState("error");
+  const handleAudioReady = useCallback(
+    async (blob: Blob) => {
+      if (mode === "guided" && !phrase.trim()) {
+        setError("Please type a phrase first.");
+        return;
       }
-    }
-  }, [mode, phrase, language, accent, getToken, refreshLimits]);
+
+      setAppState("analyzing");
+      setError("");
+
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Not authenticated");
+
+        const res = await analyzePronunciation(token, {
+          mode,
+          phrase: mode === "guided" ? phrase : undefined,
+          audio: blob,
+          language,
+          accent,
+        });
+
+        setResult(res);
+        setAppState("results");
+        refreshLimits();
+      } catch (e: unknown) {
+        const err = e as { status?: number; detail?: string };
+        if (
+          err?.status === 402 ||
+          err?.detail === "monthly_limit_reached" ||
+          err?.detail === "limit_reached"
+        ) {
+          setShowUpgrade(true);
+          setAppState("idle");
+        } else {
+          setError(err?.detail ?? "Something went wrong. Please try again.");
+          setAppState("error");
+        }
+      }
+    },
+    [mode, phrase, language, accent, getToken, refreshLimits]
+  );
 
   const reset = () => {
     setAppState("idle");
@@ -153,8 +157,11 @@ export default function DashboardPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-xl font-black text-purple-600">Pronounce</span>
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-500">Coach</span>
+            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-500">
+              Coach
+            </span>
           </div>
+
           <div className="flex items-center gap-3">
             {!limitsLoading && limits && <UsageBadge limits={limits} />}
             <UserButton afterSignOutUrl="/" />
@@ -165,13 +172,23 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <section className="card space-y-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-extrabold text-gray-900">Sound clearer in real conversations</h1>
-            <p className="text-sm text-gray-600">Record once, get practical pronunciation coaching, then retry only the words that matter most.</p>
+            <h1 className="text-2xl font-extrabold text-gray-900">
+              Sound clearer in real conversations
+            </h1>
+            <p className="text-sm text-gray-600">
+              Record once, get practical pronunciation coaching, then retry only the words that matter most.
+            </p>
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Language</p>
-            <LanguageTabs languages={DEFAULT_LANGUAGES} selected={language} onChange={handleLanguageChange} />
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+              Language
+            </p>
+            <LanguageTabs
+              languages={DEFAULT_LANGUAGES}
+              selected={language}
+              onChange={handleLanguageChange}
+            />
           </div>
 
           {limits?.accent_selector_enabled && (
@@ -179,20 +196,27 @@ export default function DashboardPage() {
           )}
 
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Practice mode</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+              Practice mode
+            </p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setMode("guided")}
                 className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                  mode === "guided" ? "border-purple-500 bg-purple-500 text-white" : "border-gray-200 bg-white text-gray-700"
+                  mode === "guided"
+                    ? "border-purple-500 bg-purple-500 text-white"
+                    : "border-gray-200 bg-white text-gray-700"
                 }`}
               >
                 Read and practice
               </button>
+
               <button
                 onClick={() => setMode("free")}
                 className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                  mode === "free" ? "border-purple-500 bg-purple-500 text-white" : "border-gray-200 bg-white text-gray-700"
+                  mode === "free"
+                    ? "border-purple-500 bg-purple-500 text-white"
+                    : "border-gray-200 bg-white text-gray-700"
                 }`}
               >
                 Speak naturally
@@ -205,7 +229,9 @@ export default function DashboardPage() {
           <section className="card space-y-5">
             {mode === "guided" && (
               <div>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Your target sentence</p>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Your target sentence
+                </p>
                 <PhraseInput
                   value={phrase}
                   onChange={setPhrase}
@@ -218,8 +244,11 @@ export default function DashboardPage() {
 
             <div className={mode === "guided" ? "border-t border-purple-100 pt-5" : ""}>
               <p className="mb-4 text-center text-xs font-bold uppercase tracking-wide text-gray-400">
-                {mode === "guided" ? "Now say it clearly and naturally" : "Say a short sentence or thought"}
+                {mode === "guided"
+                  ? "Now say it clearly and naturally"
+                  : "Say a short sentence or thought"}
               </p>
+
               <AudioRecorder
                 maxSeconds={maxSecs}
                 onAudioReady={handleAudioReady}
@@ -240,22 +269,33 @@ export default function DashboardPage() {
           <section className="space-y-5">
             <div className="card space-y-5">
               <div className="flex flex-col items-center gap-4 text-center">
-                <ScoreCircle score={result.overall_score} secondaryScore={result.pronunciation_score} />
+                <ScoreCircle
+                  score={result.overall_score}
+                  secondaryScore={result.pronunciation_score}
+                />
                 <div className="space-y-1">
-                  <p className="text-lg font-bold text-gray-900">{summaryLabel(result.overall_score)}</p>
-                  <p className="text-sm text-gray-500">Overall score prioritizes intelligibility first, then accent polish.</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {summaryLabel(result.overall_score)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Overall score prioritizes intelligibility first, then accent polish.
+                  </p>
                 </div>
               </div>
 
               <div className="grid gap-3 rounded-3xl bg-gray-50 p-4 text-sm text-gray-600 sm:grid-cols-2">
                 <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">You said</p>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">
+                    You said
+                  </p>
                   <p className="font-medium text-gray-800">“{result.transcribed || "—"}”</p>
                 </div>
 
                 {result.mode === "guided" && result.intended && (
                   <div>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">Target</p>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">
+                      Target
+                    </p>
                     <p className="font-medium text-gray-800">“{result.intended}”</p>
                   </div>
                 )}
@@ -289,6 +329,13 @@ export default function DashboardPage() {
               userBase64={result.full_user_audio_base64}
             />
 
+            {result.sound_map?.length > 0 && (
+              <>
+                <WeakestSoundSpotlight words={result.sound_map} />
+                <SoundMap words={result.sound_map} />
+              </>
+            )}
+
             {result.practice_words.length > 0 ? (
               <div className="card">
                 <WordCards
@@ -301,8 +348,12 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="card text-center">
-                <p className="text-lg font-semibold text-green-700">Nice work — your pronunciation was clear and natural overall.</p>
-                <p className="mt-2 text-sm text-gray-500">Try a harder sentence, a faster delivery, or a different accent to keep improving.</p>
+                <p className="text-lg font-semibold text-green-700">
+                  Nice work — your pronunciation was clear and natural overall.
+                </p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Try a harder sentence, a faster delivery, or a different accent to keep improving.
+                </p>
               </div>
             )}
 

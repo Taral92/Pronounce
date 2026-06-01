@@ -13,7 +13,7 @@ export default function LoginPage() {
           primaryButton: "bg-purple-500 hover:bg-purple-600 rounded-2xl font-bold",
           formButtonPrimary: "bg-purple-500 hover:bg-purple-600 rounded-2xl",
         }}}
-        fallbackRedirectUrl="/dashboard"
+        forceRedirectUrl="/dashboard"
         signUpUrl="/signup"
       />
     </div>

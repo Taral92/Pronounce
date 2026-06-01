@@ -39,7 +39,14 @@ function playBase64(base64: string) {
   const url = base64ToObjectUrl(base64);
   const audio = new Audio(url);
   audio.onended = () => URL.revokeObjectURL(url);
-  audio.play();
+  audio.onerror = () => {
+    console.error("playBase64 failed");
+    URL.revokeObjectURL(url);
+  };
+  audio.play().catch((e) => {
+    console.error("audio.play failed", e);
+    URL.revokeObjectURL(url);
+  });
 }
 
 export default function WordCards({
@@ -54,15 +61,36 @@ export default function WordCards({
   const [loadingFeedback, setLoadingFeedback] = useState<string>("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  console.log("WordCards props", {
+    wordTtsEnabled,
+    phoneticsEnabled,
+    language,
+    accent,
+    wordsCount: words.length,
+  });
+
   const playCorrect = async (word: string) => {
     if (!wordTtsEnabled) return;
+
     setLoadingCorrect(word);
     try {
       const token = await getToken();
-      if (!token) return;
+      if (!token) {
+        console.error("playCorrect failed: missing token");
+        return;
+      }
+
       const b64 = await getWordTTS(token, word, language);
+      console.log("getWordTTS success", { word, length: b64?.length ?? 0 });
+
+      if (!b64) {
+        console.error("getWordTTS returned empty base64", { word, language });
+        return;
+      }
+
       playBase64(b64);
-    } catch {
+    } catch (e) {
+      console.error("playCorrect failed", e);
     } finally {
       setLoadingCorrect("");
     }
@@ -72,10 +100,22 @@ export default function WordCards({
     setLoadingFeedback(key);
     try {
       const token = await getToken();
-      if (!token) return;
+      if (!token) {
+        console.error("playFeedback failed: missing token");
+        return;
+      }
+
       const b64 = await getFeedbackTTS(token, text, language, accent);
+      console.log("getFeedbackTTS success", { key, length: b64?.length ?? 0 });
+
+      if (!b64) {
+        console.error("getFeedbackTTS returned empty base64", { key, language, accent });
+        return;
+      }
+
       playBase64(b64);
-    } catch {
+    } catch (e) {
+      console.error("playFeedback failed", e);
     } finally {
       setLoadingFeedback("");
     }
@@ -177,6 +217,7 @@ export default function WordCards({
               <div className="flex flex-wrap gap-2">
                 {w.user_audio_base64 && (
                   <button
+                    type="button"
                     onClick={() => playBase64(w.user_audio_base64!)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
                   >
@@ -186,9 +227,10 @@ export default function WordCards({
 
                 {wordTtsEnabled && (
                   <button
+                    type="button"
                     onClick={() => playCorrect(w.word)}
                     disabled={loadingCorrect === w.word}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-700 disabled:opacity-60 active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-95"
                   >
                     {loadingCorrect === w.word ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -200,9 +242,10 @@ export default function WordCards({
                 )}
 
                 <button
+                  type="button"
                   onClick={() => playFeedback(key, feedbackText)}
                   disabled={loadingFeedback === key}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-black disabled:opacity-60 active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60 active:scale-95"
                 >
                   {loadingFeedback === key ? (
                     <Loader2 size={12} className="animate-spin" />

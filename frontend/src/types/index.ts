@@ -19,6 +19,31 @@ export interface PracticeWord {
   user_audio_base64?: string;
 }
 
+export interface PhonemeScore {
+  phoneme: string;
+  accuracy_score?: number;
+  offset?: number;
+  duration?: number;
+}
+
+export interface SyllableScore {
+  syllable: string;
+  grapheme?: string;
+  accuracy_score?: number;
+  offset?: number;
+  duration?: number;
+}
+
+export interface AnalyzedWordScore {
+  word: string;
+  accuracy_score?: number;
+  error_type?: string;
+  offset?: number;
+  duration?: number;
+  syllables: SyllableScore[];
+  phonemes: PhonemeScore[];
+}
+
 export interface AnalyzeResponse {
   mode: AnalyzeMode;
   overall_score: number;
@@ -35,6 +60,7 @@ export interface AnalyzeResponse {
   native_audio_base64?: string;
   full_user_audio_base64: string;
   practice_words: PracticeWord[];
+  sound_map: AnalyzedWordScore[];
   analyses_remaining: number | null;
 }
 
