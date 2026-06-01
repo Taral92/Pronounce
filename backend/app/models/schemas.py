@@ -49,10 +49,11 @@ class AnalyzeResponse(BaseModel):
 
     overall_score: int
 
-    pronunciation_score: Optional[int] = None
-    accuracy_score: Optional[int] = None
-    fluency_score: Optional[int] = None
-    prosody_score: Optional[int] = None
+    pronunciation_score: Optional[float] = None
+    accuracy_score: Optional[float] = None
+    fluency_score: Optional[float] = None
+    prosody_score: Optional[float] = None
+    completeness_score: Optional[float] = None
 
     overall_feedback: str
     transcribed: str
@@ -60,12 +61,12 @@ class AnalyzeResponse(BaseModel):
     language: str
     accent: str
 
+    native_audio_base64: Optional[str] = None
     full_user_audio_base64: str
 
     practice_words: list[PracticeWord]
 
     analyses_remaining: Optional[int] = None
-
 
 class AudioResponse(BaseModel):
     audio_base64: str

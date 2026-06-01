@@ -39,9 +39,9 @@ async def word(text: str, language: str) -> bytes:
 def to_base64(audio: bytes) -> str:
     return base64.b64encode(audio).decode("utf-8")
 
-async def safe_word_base64(text: str, language: str) -> str:
+async def safe_feedback_base64(text: str, language: str, accent: str) -> str:
     try:
-        audio = await word(text, language)
+        audio = await phrase(text, language, accent)
         return to_base64(audio)
     except Exception:
         return ""

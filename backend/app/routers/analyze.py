@@ -4,8 +4,9 @@ import subprocess
 import os
 
 from app.middleware.auth import get_current_user
-from app.services import gpt
+from app.services import gpt, tts
 from app.services.speech_assessment import assess as speech_assess
+from app.services.azure_speech import assess_pronunciation
 from app.services.audio_clip import clip_audio_bytes, find_best_word_span, to_base64 as clip_to_base64
 from app.services.usage import check_and_consume, get_or_create_user, get_usage, get_effective_limits
 from app.models.schemas import AnalyzeResponse, PracticeWord, WordPartsFeedback
@@ -66,20 +67,24 @@ async def analyze(
         raise HTTPException(status_code=400, detail="empty_audio")
 
     whisper_code = LANGUAGES[language]["whisper_code"]
-    print("MODE:", mode)
-    print("CLEANED PHRASE:", cleaned_phrase)
+
+    native_audio_bytes = None
+    if mode == "guided" and cleaned_phrase:
+        try:
+            native_audio_bytes = await tts.phrase(cleaned_phrase, language, accent)
+        except Exception:
+            native_audio_bytes = None
+
     speech_result = await speech_assess(
-    audio_bytes=audio_bytes,
-    language_code=whisper_code,
-    reference_text=cleaned_phrase if mode == "guided" else None,
-    filename=audio.filename or "recording.webm",
-)
+        audio_bytes=audio_bytes,
+        language_code=whisper_code,
+        reference_text=cleaned_phrase if mode == "guided" else None,
+        filename=audio.filename or "recording.webm",
+    )
 
     transcription = speech_result["transcription"]
     azure_scores = speech_result["assessment"]
 
-    print("AZURE:", azure_scores)
-    print("TRANSCRIPTION:", transcription)
     transcript_text = _clean_text(transcription.get("text")) or ""
 
     analysis = await gpt.analyze(
@@ -147,15 +152,22 @@ async def analyze(
     return AnalyzeResponse(
         mode=mode,
         overall_score=max(0, min(100, int(analysis.get("overall_score", 0) or 0))),
+        pronunciation_score=azure_scores.get("pronunciation_score") if azure_scores else None,
+        accuracy_score=azure_scores.get("accuracy_score") if azure_scores else None,
+        fluency_score=azure_scores.get("fluency_score") if azure_scores else None,
+        prosody_score=azure_scores.get("prosody_score") if azure_scores else None,
+        completeness_score=azure_scores.get("completeness_score") if azure_scores else None,
         overall_feedback=overall_feedback,
         transcribed=transcript_text,
         intended=cleaned_phrase if cleaned_phrase else None,
         language=language,
         accent=accent,
+        native_audio_base64=clip_to_base64(native_audio_bytes) if native_audio_bytes else None,
         full_user_audio_base64=clip_to_base64(audio_bytes),
         practice_words=practice_words,
         analyses_remaining=remaining,
     )
+
 
 @router.post("/azure-debug")
 async def azure_debug(audio: UploadFile = File(...)):
