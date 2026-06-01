@@ -10,5 +10,6 @@ PyJWT==2.9.0
 cryptography==43.0.1
 python-multipart==0.0.9
 svix==1.24.0
+azure-cognitiveservices-speech
 
 

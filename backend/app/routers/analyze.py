@@ -1,6 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+import tempfile
+import subprocess
+import os
+
 from app.middleware.auth import get_current_user
-from app.services import whisper, gpt
+from app.services import gpt
+from app.services.speech_assessment import assess as speech_assess
 from app.services.audio_clip import clip_audio_bytes, find_best_word_span, to_base64 as clip_to_base64
 from app.services.usage import check_and_consume, get_or_create_user, get_usage, get_effective_limits
 from app.models.schemas import AnalyzeResponse, PracticeWord, WordPartsFeedback
@@ -61,7 +66,20 @@ async def analyze(
         raise HTTPException(status_code=400, detail="empty_audio")
 
     whisper_code = LANGUAGES[language]["whisper_code"]
-    transcription = await whisper.transcribe(audio_bytes, whisper_code, audio.filename or "recording.webm")
+    print("MODE:", mode)
+    print("CLEANED PHRASE:", cleaned_phrase)
+    speech_result = await speech_assess(
+    audio_bytes=audio_bytes,
+    language_code=whisper_code,
+    reference_text=cleaned_phrase if mode == "guided" else None,
+    filename=audio.filename or "recording.webm",
+)
+
+    transcription = speech_result["transcription"]
+    azure_scores = speech_result["assessment"]
+
+    print("AZURE:", azure_scores)
+    print("TRANSCRIPTION:", transcription)
     transcript_text = _clean_text(transcription.get("text")) or ""
 
     analysis = await gpt.analyze(
@@ -138,3 +156,42 @@ async def analyze(
         practice_words=practice_words,
         analyses_remaining=remaining,
     )
+
+@router.post("/azure-debug")
+async def azure_debug(audio: UploadFile = File(...)):
+    audio_bytes = await audio.read()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as src:
+        src.write(audio_bytes)
+        src_path = src.name
+
+    wav_path = src_path.replace(".webm", ".wav")
+
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i", src_path,
+                "-ar", "16000",
+                "-ac", "1",
+                wav_path,
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        result = assess_pronunciation(
+            wav_path,
+            "hello how are you"
+        )
+
+        return result
+
+    finally:
+        if os.path.exists(src_path):
+            os.remove(src_path)
+
+        if os.path.exists(wav_path):
+            os.remove(wav_path)

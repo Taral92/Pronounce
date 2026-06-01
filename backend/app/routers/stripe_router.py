@@ -56,15 +56,32 @@ def _record_commission(clerk_id: str, stripe_event_id: str, amount: float, plan_
     }).execute()
 
 @router.post("/create-checkout-session")
-async def create_checkout(price_id: str = Body(..., embed=True), user_payload: dict = Depends(get_current_user)):
-    clerk_id = user_payload["sub"]
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        mode="subscription",
-        line_items=[{"price": price_id, "quantity": 1}],
-        client_reference_id=clerk_id,
-        success_url=settings.STRIPE_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CANCEL_URL,
-        allow_promotion_codes=True,
-    )
-    return {"url": session.url}
+async def create_checkout(
+    price_id: str = Body(..., embed=True),
+    user_payload: dict = Depends(get_current_user),
+):
+    try:
+        clerk_id = user_payload["sub"]
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[
+                {
+                    "price": price_id,
+                    "quantity": 1,
+                }
+            ],
+            client_reference_id=clerk_id,
+            billing_address_collection="required",
+            allow_promotion_codes=True,
+            success_url=settings.STRIPE_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CANCEL_URL,
+        )
+
+        return {"url": session.url}
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

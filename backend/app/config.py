@@ -60,7 +60,7 @@ TIERS: dict[str, dict[str, Any]] = {
         "welcome_bonus": 0,
     },
     "free": {
-        "monthly_analyses": 500,
+        "monthly_analyses": 10,
         "max_recording_secs": 30,
         "max_phrase_chars": 200,
         "welcome_bonus": 3,
@@ -124,6 +124,9 @@ class Settings(BaseSettings):
     WORD_TTS_ENABLED: bool = True
     ACCENT_SELECTOR_ENABLED: bool = True
     PHONETICS_ENABLED: bool = True
+
+    AZURE_SPEECH_KEY: str
+    AZURE_SPEECH_REGION: str
 
     # ── CORS ────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]

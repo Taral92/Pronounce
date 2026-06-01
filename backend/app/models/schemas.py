@@ -46,14 +46,24 @@ class PracticeWord(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     mode: Literal["guided", "free"]
+
     overall_score: int
+
+    pronunciation_score: Optional[int] = None
+    accuracy_score: Optional[int] = None
+    fluency_score: Optional[int] = None
+    prosody_score: Optional[int] = None
+
     overall_feedback: str
     transcribed: str
     intended: Optional[str] = None
     language: str
     accent: str
+
     full_user_audio_base64: str
+
     practice_words: list[PracticeWord]
+
     analyses_remaining: Optional[int] = None
 
 
