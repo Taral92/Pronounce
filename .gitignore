@@ -66,3 +66,8 @@ temp/
 uploads/
 recordings/
 generated/
+supabase/migrations/
+supabase/config.toml
+supabase/secrets.toml
+supabase/functions/
+supabase/seed.sql

@@ -60,7 +60,7 @@ export async function createCheckoutSession(
   token: string,
   priceId?: string
 ): Promise<{ url: string }> {
-  return req<{ url: string }>(token, "/stripe/create-checkout-session", {
+  return req<{ url: string }>(token, "/create-checkout-session", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
