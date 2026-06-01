@@ -1,70 +1,66 @@
 "use client";
 
-import type { DimensionScore } from "@/types";
-
 interface Props {
-  dimensions: Record<string, DimensionScore>;
+  scores: {
+    pronunciation_score?: number;
+    accuracy_score?: number;
+    fluency_score?: number;
+    prosody_score?: number;
+    completeness_score?: number;
+  };
 }
 
-const icons: Record<string, string> = {
-  sounds: "🔤",
-  rhythm: "🎵",
-  stress: "📢",
-  pitch: "📊",
+const ITEMS = [
+  { key: "pronunciation_score", label: "Pronunciation", hint: "Overall sound quality and clarity." },
+  { key: "accuracy_score", label: "Accuracy", hint: "How closely your sounds matched the target." },
+  { key: "fluency_score", label: "Fluency", hint: "Smoothness, pacing, and flow." },
+  { key: "completeness_score", label: "Completeness", hint: "Whether key words were fully said." },
+  { key: "prosody_score", label: "Prosody", hint: "Rhythm, stress, and intonation." },
+] as const;
+
+const tone = (score?: number) => {
+  if (score == null) return { bar: "bg-purple-300", text: "text-purple-600", chip: "bg-purple-50" };
+  if (score >= 85) return { bar: "bg-green-500", text: "text-green-600", chip: "bg-green-50" };
+  if (score >= 70) return { bar: "bg-amber-500", text: "text-amber-600", chip: "bg-amber-50" };
+  return { bar: "bg-red-500", text: "text-red-600", chip: "bg-red-50" };
 };
 
-const labels: Record<string, string> = {
-  sounds: "Sounds",
-  rhythm: "Rhythm",
-  stress: "Stress",
-  pitch: "Pitch",
-};
+export default function DimensionScores({ scores }: Props) {
+  const visible = ITEMS.filter(({ key }) => scores[key] != null);
+  if (!visible.length) return null;
 
-const barColor = (score?: number) =>
-  score == null ? "#a78bfa" : score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#ef4444";
-
-export default function DimensionScores({ dimensions }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {Object.entries(dimensions).map(([key, dim]) => (
-        <div
-          key={key}
-          className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm"
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              {icons[key] ?? "•"} {labels[key] ?? key}
-            </span>
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500">Score breakdown</h3>
+        <p className="mt-1 text-xs text-gray-500">Detailed speaking metrics from the speech assessment engine.</p>
+      </div>
 
-            {dim.score != null ? (
-              <span
-                className="text-lg font-extrabold"
-                style={{ color: barColor(dim.score) }}
-              >
-                {dim.score}
-              </span>
-            ) : (
-              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-sm font-bold text-purple-600">
-                {dim.label}
-              </span>
-            )}
-          </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {visible.map(({ key, label, hint }) => {
+          const value = scores[key];
+          const styles = tone(value);
 
-          {dim.score != null && (
-            <div className="mb-2 h-1.5 w-full rounded-full bg-purple-100">
-              <div
-                className="h-1.5 rounded-full transition-all duration-700"
-                style={{
-                  width: `${dim.score}%`,
-                  backgroundColor: barColor(dim.score),
-                }}
-              />
+          return (
+            <div key={key} className={`rounded-2xl border border-gray-200 p-4 ${styles.chip}`}>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{label}</p>
+                  <p className="text-[11px] leading-relaxed text-gray-500">{hint}</p>
+                </div>
+                <span className={`text-lg font-extrabold ${styles.text}`}>{value}</span>
+              </div>
+
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/80">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${styles.bar}`}
+                  style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }}
+                />
+              </div>
             </div>
-          )}
-
-          <p className="text-xs leading-relaxed text-gray-500">{dim.feedback}</p>
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }

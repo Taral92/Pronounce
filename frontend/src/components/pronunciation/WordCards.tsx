@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Volume2, Loader2 } from "lucide-react";
+import { Volume2, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { getWordTTS, getFeedbackTTS, base64ToObjectUrl } from "@/lib/api";
 import type { PracticeWord } from "@/types";
 
@@ -15,22 +15,25 @@ interface Props {
 }
 
 const severityStyles = {
-  low: "border-amber-200 bg-amber-50",
-  medium: "border-orange-200 bg-orange-50",
-  high: "border-red-200 bg-red-50",
-};
-
-const severityDot = {
-  low: "bg-amber-400",
-  medium: "bg-orange-400",
-  high: "bg-red-400",
-};
-
-const severityLabel = {
-  low: "Polish this",
-  medium: "Fix this",
-  high: "Priority fix",
-};
+  low: {
+    card: "border-amber-200 bg-amber-50/70",
+    badge: "bg-amber-100 text-amber-800",
+    dot: "bg-amber-400",
+    label: "Polish this",
+  },
+  medium: {
+    card: "border-orange-200 bg-orange-50/70",
+    badge: "bg-orange-100 text-orange-800",
+    dot: "bg-orange-400",
+    label: "Fix this",
+  },
+  high: {
+    card: "border-red-200 bg-red-50/70",
+    badge: "bg-red-100 text-red-800",
+    dot: "bg-red-400",
+    label: "Priority fix",
+  },
+} as const;
 
 function playBase64(base64: string) {
   const url = base64ToObjectUrl(base64);
@@ -49,10 +52,10 @@ export default function WordCards({
   const { getToken } = useAuth();
   const [loadingCorrect, setLoadingCorrect] = useState<string>("");
   const [loadingFeedback, setLoadingFeedback] = useState<string>("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const playCorrect = async (word: string) => {
     if (!wordTtsEnabled) return;
-
     setLoadingCorrect(word);
     try {
       const token = await getToken();
@@ -78,7 +81,7 @@ export default function WordCards({
     }
   };
 
-  if (words.length === 0) return null;
+  if (!words.length) return null;
 
   return (
     <div>
@@ -87,86 +90,97 @@ export default function WordCards({
           Your highest-impact fixes
         </h3>
         <p className="mt-1 text-xs text-gray-500">
-          Practice these first to sound clearer faster.
+          Practice these first to improve clarity fastest without getting overloaded.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {words.map((w, i) => {
+          const styles = severityStyles[w.severity];
           const feedbackText = `${w.what_to_fix}. Next time, ${w.next_try_tip}`;
-          const feedbackKey = `${w.word}-${i}`;
-          const userAudio = w.user_audio_base64;
+          const key = `${w.word}-${i}`;
+          const isExpanded = !!expanded[key];
+          const hasParts = Boolean(w.parts?.start || w.parts?.middle || w.parts?.end);
 
           return (
-            <div
-              key={feedbackKey}
-              className={`rounded-2xl border p-4 ${severityStyles[w.severity]}`}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${severityDot[w.severity]}`} />
-                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                    {severityLabel[w.severity]}
-                  </span>
+            <article key={key} className={`rounded-3xl border p-4 shadow-sm ${styles.card}`}>
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${styles.badge}`}>
+                      {styles.label}
+                    </span>
+                  </div>
+                  <h4 className="text-lg font-bold text-gray-900">{w.word}</h4>
+                  {phoneticsEnabled && w.phonetic && (
+                    <p className="mt-1 font-mono text-xs text-gray-500">
+                      Target pronunciation: {w.phonetic}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <p className="mb-1 text-base font-bold text-gray-800">{w.word}</p>
-
-              {phoneticsEnabled && w.phonetic && (
-                <p className="mb-1 font-mono text-xs text-gray-500">
-                  Target sound: {w.phonetic}
-                </p>
-              )}
-
               {phoneticsEnabled && w.spoken && (
-                <p className="mb-2 font-mono text-xs text-red-500">
+                <p className="mb-3 rounded-2xl bg-white/80 px-3 py-2 text-xs font-medium text-red-600">
                   Heard as: {w.spoken}
                 </p>
               )}
 
               {w.what_was_good && (
                 <p className="mb-2 text-xs leading-relaxed text-green-700">
-                  ✅ {w.what_was_good}
+                  <span className="font-semibold">What was good:</span> {w.what_was_good}
                 </p>
               )}
 
-              <p className="mb-2 text-xs leading-relaxed text-gray-700">
+              <p className="mb-2 text-sm leading-relaxed text-gray-800">
                 <span className="font-semibold">What to fix:</span> {w.what_to_fix}
               </p>
 
-              <p className="mb-3 text-xs leading-relaxed text-gray-600">
+              <p className="mb-3 text-sm leading-relaxed text-gray-600">
                 <span className="font-semibold">Next try:</span> {w.next_try_tip}
               </p>
 
-              {w.parts && (
-                <div className="mb-3 space-y-1">
-                  {w.parts.start && (
-                    <p className="text-[11px] text-gray-600">
-                      <span className="font-semibold">Start:</span> {w.parts.start}
-                    </p>
-                  )}
-                  {w.parts.middle && (
-                    <p className="text-[11px] text-gray-600">
-                      <span className="font-semibold">Middle:</span> {w.parts.middle}
-                    </p>
-                  )}
-                  {w.parts.end && (
-                    <p className="text-[11px] text-gray-600">
-                      <span className="font-semibold">End:</span> {w.parts.end}
-                    </p>
+              {hasParts && (
+                <div className="mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className="flex items-center gap-2 text-xs font-semibold text-gray-600"
+                  >
+                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {isExpanded ? "Hide sound breakdown" : "Show sound breakdown"}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="mt-3 space-y-2 rounded-2xl bg-white/80 p-3">
+                      {w.parts?.start && (
+                        <p className="text-xs text-gray-700">
+                          <span className="font-semibold">Start:</span> {w.parts.start}
+                        </p>
+                      )}
+                      {w.parts?.middle && (
+                        <p className="text-xs text-gray-700">
+                          <span className="font-semibold">Middle:</span> {w.parts.middle}
+                        </p>
+                      )}
+                      {w.parts?.end && (
+                        <p className="text-xs text-gray-700">
+                          <span className="font-semibold">End:</span> {w.parts.end}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
               <div className="flex flex-wrap gap-2">
-                {userAudio && (
+                {w.user_audio_base64 && (
                   <button
-                    onClick={() => playBase64(userAudio)}
-                    className="flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-all active:scale-95 hover:bg-gray-50"
+                    onClick={() => playBase64(w.user_audio_base64!)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
                   >
-                    <Volume2 size={11} />
-                    Your audio
+                    <Volume2 size={12} /> You
                   </button>
                 )}
 
@@ -174,31 +188,31 @@ export default function WordCards({
                   <button
                     onClick={() => playCorrect(w.word)}
                     disabled={loadingCorrect === w.word}
-                    className="flex items-center gap-1.5 rounded-full bg-purple-500 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-95 hover:bg-purple-600 disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-700 disabled:opacity-60 active:scale-95"
                   >
                     {loadingCorrect === w.word ? (
-                      <Loader2 size={11} className="animate-spin" />
+                      <Loader2 size={12} className="animate-spin" />
                     ) : (
-                      <Volume2 size={11} />
+                      <Volume2 size={12} />
                     )}
-                    Target audio
+                    Native
                   </button>
                 )}
 
                 <button
-                  onClick={() => playFeedback(feedbackKey, feedbackText)}
-                  disabled={loadingFeedback === feedbackKey}
-                  className="flex items-center gap-1.5 rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-95 hover:bg-black disabled:opacity-60"
+                  onClick={() => playFeedback(key, feedbackText)}
+                  disabled={loadingFeedback === key}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-black disabled:opacity-60 active:scale-95"
                 >
-                  {loadingFeedback === feedbackKey ? (
-                    <Loader2 size={11} className="animate-spin" />
+                  {loadingFeedback === key ? (
+                    <Loader2 size={12} className="animate-spin" />
                   ) : (
-                    <Volume2 size={11} />
+                    <Volume2 size={12} />
                   )}
                   Coach tip
                 </button>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>

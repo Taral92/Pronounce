@@ -19,35 +19,23 @@ export interface PracticeWord {
   user_audio_base64?: string;
 }
 
-export interface DimensionScore {
-  score?: number;
-  label: string;
-  feedback: string;
-}
-
 export interface AnalyzeResponse {
   mode: AnalyzeMode;
-
   overall_score: number;
-
   pronunciation_score?: number;
   accuracy_score?: number;
   fluency_score?: number;
   prosody_score?: number;
-
+  completeness_score?: number;
   overall_feedback: string;
   transcribed: string;
   intended?: string | null;
   language: string;
   accent: string;
-
+  native_audio_base64?: string;
   full_user_audio_base64: string;
-
   practice_words: PracticeWord[];
-
   analyses_remaining: number | null;
-
-  dimensions?: Record<string, DimensionScore>;
 }
 
 export interface AudioResponse {

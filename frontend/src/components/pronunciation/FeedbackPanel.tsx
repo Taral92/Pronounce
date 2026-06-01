@@ -1,23 +1,37 @@
 "use client";
-interface Props { feedback: string[]; nativeComparison: string; }
 
-export default function FeedbackPanel({ feedback, nativeComparison }: Props) {
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+
+interface Props {
+  feedback: string;
+}
+
+export default function FeedbackPanel({ feedback }: Props) {
+  const [open, setOpen] = useState(false);
+  if (!feedback?.trim()) return null;
+
   return (
-    <div className="bg-purple-50 rounded-2xl border border-purple-100 p-4">
-      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">💬 Coach Feedback</h3>
-      {nativeComparison && (
-        <p className="text-sm text-purple-700 font-semibold mb-3 pb-3 border-b border-purple-100">
-          {nativeComparison}
-        </p>
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500">Coach notes</h3>
+          <p className="mt-1 text-xs text-gray-500">Open for the full written summary and practice focus.</p>
+        </div>
+        <span className="rounded-full bg-gray-100 p-2 text-gray-500">
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-4 rounded-2xl bg-purple-50 px-4 py-3 text-sm leading-relaxed text-gray-700">
+          {feedback}
+        </div>
       )}
-      <ul className="space-y-2">
-        {feedback.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-            <span className="mt-0.5 text-purple-400 font-bold">→</span>
-            {item}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
